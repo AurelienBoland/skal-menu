@@ -638,7 +638,7 @@ Item {
           appId: "",
           label: calcAnswer.label,
           target: "",
-          detail: "Enter to copy",
+          detail: "",
           path: "",
           childCount: 0,
           action: calcAnswer.value,
@@ -713,7 +713,7 @@ Item {
           appId: "",
           label: emojiMatches[e].glyph,
           target: "",
-          detail: emojiMatches[e].name + " · Enter copies",
+          detail: emojiMatches[e].name,
           path: "",
           childCount: 0,
           action: emojiMatches[e].glyph,
@@ -1521,6 +1521,17 @@ Item {
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.heading
                   font.weight: Font.Normal
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                  textFormat: Text.PlainText
+                  visible: row.kind === "emoji" || row.kind === "calc"
+                  text: "󰆏"
+                  color: row.hasCursor ? root.selectedText : root.foreground
+                  opacity: 0.4
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
                   anchors.verticalCenter: parent.verticalCenter
                 }
               }
