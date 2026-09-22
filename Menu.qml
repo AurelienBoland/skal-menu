@@ -310,6 +310,7 @@ Item {
         kind: "app",
         icon: "",
         appIcon: parts[3] || "",
+        launch: parts[4] || "",
         appId: appId,
         label: name,
         title: "",
@@ -810,6 +811,7 @@ Item {
       opened = false
       filterText = ""
       if (root.appLibrary) root.appLibrary.launch(appId, label)
+      else if (row.launch) Util.execArgv(String(row.launch).split(" "))
       else if (appId) Util.execArgv(["gtk-launch", appId])
     } else if (row.kind === "calc") {
       // The result string rides in `action`; execArgv passes it as a single
@@ -988,7 +990,8 @@ Item {
       onRead: function(data) { fallbackAppsProc.collected += data + "\n" }
     }
     command: ["bash", "-lc",
-      'for d in "$HOME/.local/share/applications" /usr/local/share/applications /usr/share/applications; do ' +
+      'for spec in "$HOME/.local/share/applications:native" /usr/local/share/applications:native /usr/share/applications:native "$HOME/.local/share/flatpak/exports/share/applications:flatpak" /var/lib/flatpak/exports/share/applications:flatpak; do ' +
+      'd=${spec%:*}; mode=${spec##*:}; ' +
       '[ -d "$d" ] || continue; ' +
       'for f in "$d"/*.desktop; do ' +
       '[ -e "$f" ] || continue; ' +
@@ -996,12 +999,16 @@ Item {
       '[ -n "$name" ] || continue; ' +
       'grep -m1 -qE "^(NoDisplay|Hidden)=true" "$f" && continue; ' +
       'gen=$(grep -m1 "^GenericName=" "$f" | cut -d= -f2-); ' +
+      'id=$(basename "$f" .desktop); ' +
+      'launch=""; [ "$mode" = flatpak ] && launch="flatpak run $id"; ' +
       'icon=$(grep -m1 "^Icon=" "$f" | cut -d= -f2-); ' +
       'ipath=""; ' +
-      'case "$icon" in /*) [ -e "$icon" ] && ipath="$icon" ;; ' +
-      '*) for p in "/usr/share/pixmaps/$icon.png" "/usr/share/pixmaps/$icon.svg" "/usr/share/pixmaps/$icon.xpm" "/usr/share/icons/hicolor/48x48/apps/$icon.png" "/usr/share/icons/hicolor/64x64/apps/$icon.png" "/usr/share/icons/hicolor/96x96/apps/$icon.png" "/usr/share/icons/hicolor/scalable/apps/$icon.svg" "$HOME/.local/share/icons/hicolor/48x48/apps/$icon.png" "$HOME/.local/share/icons/hicolor/scalable/apps/$icon.svg"; do [ -n "$icon" ] && [ -e "$p" ] && { ipath="$p"; break; }; done ;; ' +
-      'esac; ' +
-      'printf "%s\\t%s\\t%s\\t%s\\n" "$name" "$(basename "$f" .desktop)" "$gen" "$ipath"; ' +
+      'case "$icon" in /*) [ -e "$icon" ] && ipath="$icon" ;; esac; ' +
+      'if [ -z "$ipath" ] && [ -n "$icon" ]; then ' +
+      'for base in /usr/share/pixmaps /usr/share/icons/hicolor "$HOME/.local/share/icons/hicolor" /var/lib/flatpak/exports/share/icons/hicolor "$HOME/.local/share/flatpak/exports/share/icons/hicolor"; do ' +
+      'for p in "$base/$icon.png" "$base/$icon.svg" "$base/apps/$icon.png" "$base/apps/$icon.svg" "$base/48x48/apps/$icon.png" "$base/64x64/apps/$icon.png" "$base/scalable/apps/$icon.svg"; do ' +
+      '[ -e "$p" ] && { ipath="$p"; break 2; }; done; done; fi; ' +
+      'printf "%s\\t%s\\t%s\\t%s\\t%s\\n" "$name" "$id" "$gen" "$ipath" "$launch"; ' +
       'done; done | sort -f']
     onExited: root.mergeFallbackAppRows(fallbackAppsProc.collected)
   }
