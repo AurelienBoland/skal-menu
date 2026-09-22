@@ -1,8 +1,6 @@
 # Skål Menu
 
-The Omarchy launcher menu ([omarchy.menu](https://github.com/omacom/omarchy) clone) with a calculator built into the search box.
-
-Type an equation or a conversion as your search query and the answer appears as the first row, before apps and menu entries. Press Enter to copy it. Everything else behaves exactly like the stock menu: apps, submenus, scoped search, routes.
+The Omarchy launcher menu ([omarchy.menu](https://github.com/omacom/omarchy) clone) with a a few creature features built in.
 
 - Math: `2+2`, `(3+4)*2`, `2^10`, `2pi`, `sqrt(144)`, `0xff + 1`, `0b1010`, implicit multiplication like `2(3+4)`
 - Functions: sqrt, cbrt, abs, round, floor, ceil, exp, ln, log, log2, log10, sin, cos, tan, asin, acos, atan
