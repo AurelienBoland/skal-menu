@@ -6,6 +6,7 @@ import qs.Commons
 import qs.Ui
 import "MenuModel.js" as MenuModel
 import "Calc.js" as Calc
+import "Emoji.js" as Emoji
 
 Item {
   id: root
@@ -673,7 +674,56 @@ Item {
       if (root.searchDivider) {
         for (var d = 0; d < drilldownRows.length; d++) drilldownRows[d].section = "drilldown"
       }
-      rows = calcRows.concat(currentRows, drilldownRows)
+
+      // The web-search fallback Walker users lost in the quattro menu
+      // (#7012): always one row beneath whatever matched, Enter opens the
+      // default browser. xdg-open gets the URL as one argv element, so the
+      // query is never re-read as shell syntax.
+      var webRows = []
+      if (query.length >= 2) {
+        webRows.push({
+          itemId: "web.search",
+          kind: "web",
+          icon: "󰍉",
+          iconFont: "",
+          appIcon: "",
+          appId: "",
+          label: "Search the web for “" + query + "”",
+          target: "",
+          detail: "Opens in your default browser",
+          path: "",
+          childCount: 0,
+          action: "https://duckduckgo.com/?q=" + encodeURIComponent(query),
+          provider: "",
+          score: 999999,
+          section: ""
+        })
+      }
+      // Glyphs by name ("shrug", "em dash"), the Walker unicode module's
+      // job: a few rows above the web fallback, Enter copies the glyph.
+      var emojiRows = []
+      var emojiMatches = Emoji.search(query, 4)
+      for (var e = 0; e < emojiMatches.length; e++) {
+        emojiRows.push({
+          itemId: "emoji." + emojiMatches[e].name.replace(/[^a-z0-9]+/g, "-"),
+          kind: "emoji",
+          icon: "",
+          iconFont: "",
+          appIcon: "",
+          appId: "",
+          label: emojiMatches[e].glyph,
+          target: "",
+          detail: emojiMatches[e].name + " · Enter copies",
+          path: "",
+          childCount: 0,
+          action: emojiMatches[e].glyph,
+          provider: "",
+          score: 888888,
+          section: ""
+        })
+      }
+
+      rows = calcRows.concat(currentRows, drilldownRows, emojiRows, webRows)
     } else {
       for (var j = 0; j < root.itemOrder.length; j++) {
         var child = root.item(root.itemOrder[j])
@@ -820,6 +870,16 @@ Item {
       root.opened = false
       root.filterText = ""
       if (answer) Util.execArgv(["wl-copy", answer])
+    } else if (row.kind === "emoji") {
+      var glyph = String(row.action || "")
+      root.opened = false
+      root.filterText = ""
+      if (glyph) Util.execArgv(["wl-copy", glyph])
+    } else if (row.kind === "web") {
+      var url = String(row.action || "")
+      root.opened = false
+      root.filterText = ""
+      if (url) Util.execArgv(["xdg-open", url])
     } else {
       root.applySelected(row.itemId, row.action)
     }
@@ -1293,6 +1353,20 @@ Item {
             clip: true
             spacing: root.rowSpacing
             boundsBehavior: Flickable.StopAtBounds
+
+            // #7361: Qt's default wheel steps feel sluggish on a touchpad.
+            // Scale both delta flavors and clamp to the list bounds.
+            WheelHandler {
+              onWheel: function(event) {
+                var dy = event.pixelDelta.y !== 0
+                  ? event.pixelDelta.y * 1.5
+                  : event.angleDelta.y * 0.9
+                var maxY = resultList.originY + resultList.contentHeight - resultList.height
+                resultList.contentY = Math.max(resultList.originY,
+                  Math.min(maxY, resultList.contentY - dy))
+                event.accepted = true
+              }
+            }
 
             section.property: "section"
             section.criteria: ViewSection.FullString
