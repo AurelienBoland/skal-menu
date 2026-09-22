@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "skal.menu",
+  "name": "Skål Menu",
+  "version": "1.0.0",
+  "author": "Outcrop Labs",
+  "description": "The Omarchy launcher menu with a built-in calculator: type math like 2+2 or conversions like 5 km to mi right in the search box",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "My Omarchy menu",
+    "description": "Launches the Omarchy menu",
+    "category": "Compositor",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.menu"
+  }
+}
