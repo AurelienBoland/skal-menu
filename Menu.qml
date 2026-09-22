@@ -1523,17 +1523,22 @@ Item {
                   font.weight: Font.Normal
                   anchors.verticalCenter: parent.verticalCenter
                 }
+              }
 
-                Text {
-                  textFormat: Text.PlainText
-                  visible: row.kind === "emoji" || row.kind === "calc"
-                  text: "󰆏"
-                  color: row.hasCursor ? root.selectedText : root.foreground
-                  opacity: 0.4
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                  anchors.verticalCenter: parent.verticalCenter
-                }
+              // The copy affordance for answer rows: pinned to the row's
+              // right edge, on the label line (not inside the trail column,
+              // which stacks its children vertically).
+              Text {
+                textFormat: Text.PlainText
+                visible: row.kind === "emoji" || row.kind === "calc"
+                text: "󰆏"
+                color: row.hasCursor ? root.selectedText : root.foreground
+                opacity: 0.4
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                anchors.right: row.right
+                anchors.rightMargin: root.rowReservedBorderRight + Style.space(8)
+                y: contentColumn.y + labelText.y + (labelText.height - height) / 2
               }
 
               MouseArea {
