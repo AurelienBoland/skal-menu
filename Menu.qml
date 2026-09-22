@@ -288,8 +288,56 @@ Item {
   // The apps provider is QML-native: rows come from the shared AppLibrary
   // (DesktopEntries) instead of a bash enumeration, so they carry image
   // icons, launch feedback, and uninstall support like the launcher.
+  // Third-party menus are handed a scoped shell whose appLibrary is null
+  // (omacom/omarchy#12014), which silently empties the Apps side of search.
+  // Fall back to scanning .desktop files ourselves; launch via gtk-launch.
+  function mergeFallbackAppRows(raw) {
+    var lines = String(raw || "").split("\n")
+    var appRows = []
+    var seen = ({})
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i]
+      if (!line.trim()) continue
+      var parts = line.split("\t")
+      var name = parts[0] || ""
+      var appId = parts[1] || ""
+      var generic = parts[2] || ""
+      if (!name || !appId || seen[appId]) continue
+      seen[appId] = true
+      appRows.push({
+        id: "apps." + appId,
+        parent: "apps",
+        kind: "app",
+        icon: "",
+        appIcon: parts[3] || "",
+        appId: appId,
+        label: name,
+        title: "",
+        target: "",
+        description: generic,
+        action: "",
+        provider: "",
+        aliases: generic ? [generic] : [],
+        when: "",
+        checked: "",
+        order: 0
+      })
+    }
+
+    var merged = MenuModel.mergeAppRows(root.items, root.itemOrder, appRows)
+    root.items = merged.items
+    root.itemOrder = merged.itemOrder
+    if (root.opened) root.rebuildDisplay()
+  }
+
   function mergeAppRows() {
-    if (!root.appLibrary) return
+    if (!root.appLibrary) {
+      if (!fallbackAppsProc.running) {
+        fallbackAppsProc.collected = ""
+        fallbackAppsProc.running = true
+      }
+      return
+    }
 
     var rows = root.appLibrary.sortedEntries("")
     var appRows = []
@@ -762,6 +810,7 @@ Item {
       opened = false
       filterText = ""
       if (root.appLibrary) root.appLibrary.launch(appId, label)
+      else if (appId) Util.execArgv(["gtk-launch", appId])
     } else if (row.kind === "calc") {
       // The result string rides in `action`; execArgv passes it as a single
       // positional parameter so no shell ever re-reads it as syntax.
@@ -924,6 +973,37 @@ Item {
       }
       root.startNextProvider()
     }
+  }
+
+  // The .desktop scanner that stands in for the host appLibrary when this
+  // menu runs as a third-party plugin (null facade, omacom/omarchy#12014).
+  // Emits "name<TAB>desktop-id<TAB>generic-name<TAB>icon-path"; local entries
+  // win over system ones with the same id. Icons resolve to a real file (a
+  // theme name is no use to an Image without the host library): absolute
+  // paths pass through, names check the usual pixmaps/hicolor spots.
+  Process {
+    id: fallbackAppsProc
+    property string collected: ""
+    stdout: SplitParser {
+      onRead: function(data) { fallbackAppsProc.collected += data + "\n" }
+    }
+    command: ["bash", "-lc",
+      'for d in "$HOME/.local/share/applications" /usr/local/share/applications /usr/share/applications; do ' +
+      '[ -d "$d" ] || continue; ' +
+      'for f in "$d"/*.desktop; do ' +
+      '[ -e "$f" ] || continue; ' +
+      'name=$(grep -m1 "^Name=" "$f" | cut -d= -f2-); ' +
+      '[ -n "$name" ] || continue; ' +
+      'grep -m1 -qE "^(NoDisplay|Hidden)=true" "$f" && continue; ' +
+      'gen=$(grep -m1 "^GenericName=" "$f" | cut -d= -f2-); ' +
+      'icon=$(grep -m1 "^Icon=" "$f" | cut -d= -f2-); ' +
+      'ipath=""; ' +
+      'case "$icon" in /*) [ -e "$icon" ] && ipath="$icon" ;; ' +
+      '*) for p in "/usr/share/pixmaps/$icon.png" "/usr/share/pixmaps/$icon.svg" "/usr/share/pixmaps/$icon.xpm" "/usr/share/icons/hicolor/48x48/apps/$icon.png" "/usr/share/icons/hicolor/64x64/apps/$icon.png" "/usr/share/icons/hicolor/96x96/apps/$icon.png" "/usr/share/icons/hicolor/scalable/apps/$icon.svg" "$HOME/.local/share/icons/hicolor/48x48/apps/$icon.png" "$HOME/.local/share/icons/hicolor/scalable/apps/$icon.svg"; do [ -n "$icon" ] && [ -e "$p" ] && { ipath="$p"; break; }; done ;; ' +
+      'esac; ' +
+      'printf "%s\\t%s\\t%s\\t%s\\n" "$name" "$(basename "$f" .desktop)" "$gen" "$ipath"; ' +
+      'done; done | sort -f']
+    onExited: root.mergeFallbackAppRows(fallbackAppsProc.collected)
   }
 
   Process {
@@ -1290,7 +1370,9 @@ Item {
                 // PNG icons upscaled and blurry on HiDPI displays.
                 sourceSize.width: width * Screen.devicePixelRatio
                 sourceSize.height: height * Screen.devicePixelRatio
-                source: row.isApp && root.appLibrary ? root.appLibrary.iconSource(row.appIcon) : ""
+                source: row.isApp
+                  ? (root.appLibrary ? root.appLibrary.iconSource(row.appIcon) : row.appIcon)
+                  : ""
                 asynchronous: true
                 anchors.left: parent.left
                 anchors.leftMargin: root.rowReservedBorderLeft + Style.space(8) + (Style.space(36) - width) / 2
