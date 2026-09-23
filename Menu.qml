@@ -693,7 +693,7 @@ Item {
           detail: "Opens in your default browser",
           path: "",
           childCount: 0,
-          action: "https://duckduckgo.com/?q=" + encodeURIComponent(query),
+          action: "https://google.com/search?q=" + encodeURIComponent(query),
           provider: "",
           score: 999999,
           section: ""
@@ -879,7 +879,7 @@ Item {
       var url = String(row.action || "")
       root.opened = false
       root.filterText = ""
-      if (url) Util.execArgv(["xdg-open", url])
+      if (url) Util.execArgv(["omarchy-launch-webapp", url])
     } else {
       root.applySelected(row.itemId, row.action)
     }
